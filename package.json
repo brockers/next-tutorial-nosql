@@ -6,7 +6,8 @@
     "prettier": "prettier --write --ignore-unknown .",
     "prettier:check": "prettier --check --ignore-unknown .",
     "start": "next start",
-    "mongo:ping": "node -r dotenv/config ./scripts/mongoPing.js"
+    "mongo:ping": "node -r dotenv/config ./scripts/mongoPing.js",
+    "mongo:seed": "node -r dotenv/config ./scripts/seedMongo.js"
   },
   "dependencies": {
     "@heroicons/react": "^2.0.18",
