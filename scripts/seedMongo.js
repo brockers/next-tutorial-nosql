@@ -7,6 +7,7 @@ const {
   users,
 } = require('../app/lib/placeholder-data.js');
 const options = { ordered: true };
+const bcrypt = require('bcrypt');
 
 async function seedData(data, db) {
   try {
@@ -31,11 +32,16 @@ async function main() {
 
   const client = await MongoClient.connect(uri);
   const db = client.db("accountFunnel");
+  // Hashed passwords only
+  users.forEach( async function(u) {
+    u.password = await bcrypt.hash(u.password, 10);
+  });
 
-  await seedData( {name: "users", data: users}, db );
   await seedData( {name: "customers", data: customers}, db );
   await seedData( {name: "revenue", data: revenue}, db );
   await seedData( {name: "invoices", data: invoices}, db );
+  console.log("users object is: ", users);
+  await seedData( {name: "users", data: users}, db );
   await client.close();
 }
 
