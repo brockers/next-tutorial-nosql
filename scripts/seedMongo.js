@@ -40,7 +40,7 @@ async function main() {
   await seedData( {name: "customers", data: customers}, db );
   await seedData( {name: "revenue", data: revenue}, db );
   await seedData( {name: "invoices", data: invoices}, db );
-  console.log("users object is: ", users);
+  // console.log("users object is: ", users);
   await seedData( {name: "users", data: users}, db );
   await client.close();
 }
