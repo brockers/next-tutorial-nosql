@@ -12,12 +12,12 @@ const options = { ordered: true };
 // 	Revenue,
 // } from './definitions';
 import { formatCurrency } from './utils';
+const client = await MongoClient.connect(uri);
+const db = client.db("accountFunnel");
 
 export async function fetchRevenue(){
 	try{
-		const client = await MongoClient.connect(uri);
-		const db = client.db("accountFunnel");
-		// Execute insert operation
+		// Get all Revenue
 		const revenueAll = await db.collection("revenue").find({}).toArray();
 		// console.log("revenue", revenueAll);
 		return revenueAll;
@@ -29,8 +29,6 @@ export async function fetchRevenue(){
 
 export async function fetchLatestInvoices() {
 	try{
-		const client = await MongoClient.connect(uri);
-		const db = client.db("accountFunnel");
 		// Execute insert operation
 		const col = await db.collection("invoices");
 		const pipeline = [
@@ -58,6 +56,10 @@ export async function fetchLatestInvoices() {
 
 		const agResults = await col.aggregate(pipeline);
 		const data = await agResults.toArray();
+		data.forEach(a  => {
+			a.amount = formatCurrency(a.amount);
+		});
+
 		return data;
 	} catch (error) {
 		console.error('Database Error: ', error);
@@ -65,62 +67,54 @@ export async function fetchLatestInvoices() {
 	}
 }
 
-// export async function fetchLatestInvoices() {
-// 	try {
-// 		const data = await sql<LatestInvoiceRaw>`
-// 			SELECT invoices.amount, customers.name, customers.image_url, customers.email, invoices.id
-// 			FROM invoices
-// 			JOIN customers ON invoices.customer_id = customers.id
-// 			ORDER BY invoices.date DESC
-// 			LIMIT 5`;
-//
-// 		const latestInvoices = data.rows.map((invoice) => ({
-// 			...invoice,
-// 			amount: formatCurrency(invoice.amount),
-// 		}));
-// 		console.log(latestInvoices);
-// 		return latestInvoices;
-// 	} catch (error) {
-// 		console.error('Database Error:', error);
-// 		throw new Error('Failed to fetch the latest invoices.');
-// 	}
-// }
+export async function fetchCardData() {
+	try {
+// const query = { countries: "Canada" };
+    // const countCanada = await movies.countDocuments(query);
+		const paidPipe = [
+  		{ '$match': {	'status': 'paid' }}, 
+  		{ '$group': {	'_id': null, 'paid': {
+  			'$sum': '$amount' }}}
+		]
+		const pendPipe = [
+  		{ '$match': {	'status': 'pending' }}, 
+  		{ '$group': {	'_id': null, 'pending': {
+  			'$sum': '$amount' }}}
+		] 
 
-// export async function fetchCardData() {
-// 	try {
-// 		// You can probably combine these into a single SQL query
-// 		// However, we are intentionally splitting them to demonstrate
-// 		// how to initialize multiple queries in parallel with JS.
-// 		const invoiceCountPromise = sql`SELECT COUNT(*) FROM invoices`;
-// 		const customerCountPromise = sql`SELECT COUNT(*) FROM customers`;
-// 		const invoiceStatusPromise = sql`SELECT
-// 				SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END) AS "paid",
-// 				SUM(CASE WHEN status = 'pending' THEN amount ELSE 0 END) AS "pending"
-// 				FROM invoices`;
-//
-// 		const data = await Promise.all([
-// 			invoiceCountPromise,
-// 			customerCountPromise,
-// 			invoiceStatusPromise,
-// 		]);
-//
-// 		const numberOfInvoices = Number(data[0].rows[0].count ?? '0');
-// 		const numberOfCustomers = Number(data[1].rows[0].count ?? '0');
-// 		const totalPaidInvoices = formatCurrency(data[2].rows[0].paid ?? '0');
-// 		const totalPendingInvoices = formatCurrency(data[2].rows[0].pending ?? '0');
-//
-// 		return {
-// 			numberOfCustomers,
-// 			numberOfInvoices,
-// 			totalPaidInvoices,
-// 			totalPendingInvoices,
-// 		};
-// 	} catch (error) {
-// 		console.error('Database Error:', error);
-// 		throw new Error('Failed to fetch card data.');
-// 	}
-// }
-//
+		const col = await db.collection("invoices");
+		const invCount = await col.countDocuments({}, { hint: "_id_" });
+		const custCount= await db.collection("customers").countDocuments({}, { hint: "_id_" });
+		const paidRe = await col.aggregate(paidPipe);
+		const pendRe = await col.aggregate(pendPipe);
+
+		const totalPaid = await paidRe.toArray();
+		const totalPend = await pendRe.toArray();
+
+		const data = await Promise.all([
+			invCount,
+			custCount,
+			totalPaid[0],
+			totalPend[0]
+		]);
+
+		const numberOfInvoices = Number(data[0] ?? '0');
+		const numberOfCustomers = Number(data[1] ?? '0');
+		const totalPaidInvoices = formatCurrency(data[2].paid ?? '0');
+		const totalPendingInvoices = formatCurrency(data[3].pending ?? '0');
+
+		return {
+			numberOfCustomers,
+			numberOfInvoices,
+			totalPaidInvoices,
+			totalPendingInvoices,
+		};
+	} catch (error) {
+		console.error('Database Error:', error);
+		throw new Error('Failed to fetch card data.');
+	}
+}
+
 // const ITEMS_PER_PAGE = 6;
 // export async function fetchFilteredInvoices(
 // 	query: string,
